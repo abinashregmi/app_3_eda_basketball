@@ -1,49 +1,55 @@
-import base64
 import pandas as pd
 import streamlit as st
 
 st.title("NBA Player Stats Explorer")
 st.markdown("""
 This app performs simple web scraping of NBA player stats data!
-* **Python libraries:** base64, pandas, streamlit
-* **Data source:** [Basketball-reference.com](https://www.basketball-reference.com/)
+* **Python libraries:** pandas, streamlit
+* **Data source:** Basketball-reference.com
 """)
 
 st.sidebar.header("User Input Features")
-selected_year = st.sidebar.selectbox('Year', list(reversed(range(1950, 2025))))
+selected_year = st.sidebar.selectbox("Year", list(reversed(range(1950, 2025))))
 
 @st.cache_data
 def load_data(year):
     url = f"https://www.basketball-reference.com/leagues/NBA_{year}_per_game.html"
-    html_tables = pd.read_html(url, header=0)
-    df = html_tables[0]
-    raw = df.drop(df[df.Age == 'Age'].index)
-    raw = raw.fillna(0)
-    playerstats = raw.drop(['Rk'], axis=1)
-    playerstats.columns = (
-        playerstats.columns
+    tables = pd.read_html(url, header=0)
+    target = None
+    for t in tables:
+        cols = t.columns.astype(str).str.strip().str.lower()
+        if "player" in cols and ("tm" in cols or "team" in cols):
+            target = t
+            break
+    if target is None:
+        return pd.DataFrame(), None
+    df = target.copy()
+    if "Age" in df.columns:
+        df = df[df["Age"] != "Age"]
+    if "Rk" in df.columns:
+        df = df.drop(columns=["Rk"])
+    df = df.fillna(0)
+    df.columns = (
+        df.columns.astype(str)
         .str.strip()
         .str.replace(" ", "_")
         .str.lower()
     )
-    team_col_candidates = ["tm", "team"]
-    team_col = next((c for c in team_col_candidates if c in playerstats.columns), None)
-    if not team_col:
-        st.error("⚠️ No team column found in scraped data. The page format may have changed.")
-        st.write("Available columns:", playerstats.columns.tolist())
-        return playerstats, None
-    return playerstats, team_col
+    candidates = ["tm", "team"]
+    team_col = next((c for c in candidates if c in df.columns), None)
+    return df, team_col
 
 playerstats, team_col = load_data(selected_year)
 
-if team_col and team_col in playerstats.columns:
-    sorted_unique_team = sorted(playerstats[team_col].unique())
-    selected_team = st.sidebar.multiselect('Team', sorted_unique_team, sorted_unique_team)
+if playerstats.empty:
+    st.error("No data table found for this season. The page format may have changed.")
 else:
-    sorted_unique_team = []
-    selected_team = []
-
-if selected_team:
-    playerstats = playerstats[playerstats[team_col].isin(selected_team)]
-
-st.dataframe(playerstats)
+    if team_col and team_col in playerstats.columns:
+        teams = pd.Series(playerstats[team_col]).replace("", pd.NA).dropna().astype(str).unique().tolist()
+        teams = sorted(teams)
+        selected_team = st.sidebar.multiselect("Team", teams, teams)
+        if selected_team:
+            playerstats = playerstats[playerstats[team_col].astype(str).isin(selected_team)]
+    else:
+        st.error("Unable to determine the team column from scraped data.")
+    st.dataframe(playerstats, use_container_width=True)
