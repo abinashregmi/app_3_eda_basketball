@@ -16,20 +16,31 @@ This app performs simple webscraping of NBA player stats data!
 st.sidebar.header('User Input Features')
 selected_year = st.sidebar.selectbox('Year', list(reversed(range(1950,2020))))
 
-# Web scraping of NBA player stats
 @st.cache_data
 def load_data(year):
-    url = "https://www.basketball-reference.com/leagues/NBA_" + str(year) + "_per_game.html"
-    html = pd.read_html(url, header = 0)
-    df = html[0]
-    raw = df.drop(df[df.Age == 'Age'].index) # Deletes repeating headers in content
+    url = f"https://www.basketball-reference.com/leagues/NBA_{year}_per_game.html"
+    html_tables = pd.read_html(url, header=0)
+    df = html_tables[0]
+    raw = df.drop(df[df.Age == 'Age'].index)
     raw = raw.fillna(0)
     playerstats = raw.drop(['Rk'], axis=1)
-    return playerstats
-playerstats = load_data(selected_year)
+    playerstats.columns = (
+        playerstats.columns
+        .str.strip()
+        .str.replace(" ", "_")
+        .str.lower()
+    )
+    team_col_candidates = ["tm", "team"]
+    team_col = next((c for c in team_col_candidates if c in playerstats.columns), None)
+    if not team_col:
+        st.error("⚠️ No team column found in scraped data. The page format may have changed.")
+        st.write("Available columns:", playerstats.columns.tolist())
+        return playerstats
+    return playerstats, team_col
 
-# Sidebar - Team selection
-sorted_unique_team = sorted(playerstats.Tm.unique())
+
+playerstats, team_col = load_data(selected_year)
+sorted_unique_team = sorted(playerstats[team_col].unique())
 selected_team = st.sidebar.multiselect('Team', sorted_unique_team, sorted_unique_team)
 
 # Sidebar - Position selection
