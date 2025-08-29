@@ -5,7 +5,7 @@ st.title("NBA Player Stats Explorer")
 st.markdown("""
 This app performs simple web scraping of NBA player stats data!
 * **Python libraries:** pandas, streamlit
-* **Data source:** Basketball-reference.com
+* **Data source:** [Basketball-reference.com](https://www.basketball-reference.com/)
 """)
 
 st.sidebar.header("User Input Features")
@@ -48,8 +48,14 @@ else:
         teams = pd.Series(playerstats[team_col]).replace("", pd.NA).dropna().astype(str).unique().tolist()
         teams = sorted(teams)
         selected_team = st.sidebar.multiselect("Team", teams, teams)
-        if selected_team:
-            playerstats = playerstats[playerstats[team_col].astype(str).isin(selected_team)]
     else:
         st.error("Unable to determine the team column from scraped data.")
+        selected_team = []
+    unique_pos = ["C", "PF", "SF", "PG", "SG"]
+    selected_pos = st.sidebar.multiselect("Position", unique_pos, unique_pos)
+    if selected_team:
+        playerstats = playerstats[playerstats[team_col].astype(str).isin(selected_team)]
+    if selected_pos:
+        playerstats = playerstats[playerstats["pos"].astype(str).isin(selected_pos)]
+    st.header("NBA Player Stats by Team")
     st.dataframe(playerstats, use_container_width=True)
