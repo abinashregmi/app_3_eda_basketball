@@ -35,13 +35,13 @@ def load_data(year):
     if not team_col:
         st.error("⚠️ No team column found in scraped data. The page format may have changed.")
         st.write("Available columns:", playerstats.columns.tolist())
-        return playerstats
+        return playerstats, None
     return playerstats, team_col
 
-
 playerstats, team_col = load_data(selected_year)
-sorted_unique_team = sorted(playerstats[team_col].unique())
-selected_team = st.sidebar.multiselect('Team', sorted_unique_team, sorted_unique_team)
+if team_col:
+    sorted_unique_team = sorted(playerstats[team_col].unique())
+    selected_team = st.sidebar.multiselect('Team', sorted_unique_team, sorted_unique_team)
 
 # Sidebar - Position selection
 unique_pos = ['C','PF','SF','PG','SG']
